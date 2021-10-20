@@ -12,17 +12,18 @@ module Control.Monad.Once
 import qualified Control.Lens as Lens
 import           Control.Monad.ListT (ListT(..))
 import           Control.Monad.Trans.Class
-import           Control.Monad.Trans.State
+import           Control.Monad.Trans.Reader
+import           Control.Monad.Trans.State (StateT, evalStateT, runStateT)
 import           Data.Dynamic (Dynamic, toDyn, fromDynamic)
-import qualified Data.Monoid as Monoid
-import qualified Data.List.Class as ListClass
-import           Data.Typeable (Typeable, typeRep)
 import           Data.IORef
+import qualified Data.List.Class as ListClass
+import qualified Data.Monoid as Monoid
 import qualified Data.Sequence as Sequence
+import           Data.Typeable (Typeable, typeRep)
 
 import           Lamdu.Prelude
 
-class MonadOnce m where
+class Monad m => MonadOnce m where
     once :: Typeable a => m a -> m (m a)
 
 instance MonadOnce IO where
@@ -68,7 +69,7 @@ instance Monad m => MonadOnce (OnceT m) where
             Nothing -> error "Once used incorrectly: wrong type for key!"
 
 onceList ::
-    (MonadOnce m, Monad m, Typeable m, Typeable a) =>
+    (MonadOnce m, Typeable m, Typeable a) =>
     ListT m a -> m (ListT m a)
 onceList (ListT a) =
     once
@@ -84,3 +85,6 @@ evalOnceT (OnceT x) = evalStateT x mempty
 
 runOnceT :: OnceState -> OnceT m a -> m (a, OnceState)
 runOnceT s (OnceT x) = runStateT x s
+
+-- lifters:
+instance MonadOnce m => MonadOnce (ReaderT r m) where once = mapReaderT (fmap lift . once)
