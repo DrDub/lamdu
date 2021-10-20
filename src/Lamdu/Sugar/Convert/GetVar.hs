@@ -80,7 +80,7 @@ inlineDef globalId dest =
     where
         defI = ExprIRef.defI globalId
 
-inlineableDefinition :: ConvertM.Context m -> V.Var -> EntityId -> Bool
+inlineableDefinition :: ConvertM.Context n m -> V.Var -> EntityId -> Bool
 inlineableDefinition ctx var entityId =
     Lens.nullOf
     (ConvertM.scTopLevelExpr . ExprLens.valGlobals recursiveVars . Lens.ifiltered f)

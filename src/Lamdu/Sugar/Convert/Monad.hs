@@ -86,15 +86,15 @@ data ScopeInfo m = ScopeInfo
     }
 Lens.makeLenses ''ScopeInfo
 
-newtype ConvertM m a = ConvertM (ReaderT (Context m) (OnceT (T m)) a)
-    deriving newtype (Functor, Applicative, Monad, MonadReader (Context m))
+newtype ConvertM m a = ConvertM (ReaderT (Context (ConvertM m) m) (OnceT (T m)) a)
+    deriving newtype (Functor, Applicative, Monad, MonadReader (Context (ConvertM m) m))
 
 instance Monad m => MonadTransaction m (ConvertM m) where
     transaction = ConvertM . lift . lift
 
 data PositionInfo = BinderPos | ExpressionPos deriving Eq
 
-data Context m = Context
+data Context n m = Context
     { _scInferContext :: InferState
     , _scCodeAnchors :: Anchors.CodeAnchors m
     , _scScopeInfo :: ScopeInfo m
@@ -111,12 +111,12 @@ data Context m = Context
     , scConvertSubexpression ::
         forall a. Monoid a =>
         PositionInfo -> Ann (Input.Payload m a) # V.Term ->
-        ConvertM m (ExpressionU EvalPrep m a)
+        n (ExpressionU EvalPrep m a)
     }
 Lens.makeLenses ''Context
 Lens.makePrisms ''TagFieldParam
 
-instance Anchors.HasCodeAnchors (Context m) m where codeAnchors = scCodeAnchors
+instance Anchors.HasCodeAnchors (Context n m) m where codeAnchors = scCodeAnchors
 
 cachedFunc :: Monad m => (Cache.Functions -> a) -> ConvertM m a
 cachedFunc f = Lens.view scCacheFunctions <&> f
@@ -146,7 +146,9 @@ typeProtectedSetToVal =
                     _ <- checkOk
                     pure res
 
-postProcessWith :: Monad m => ConvertM m ((Pure # T.TypeError -> T m ()) -> T m ())
+postProcessWith ::
+    (MonadReader (Context z m) n, Monad m) =>
+    n ((Pure # T.TypeError -> T m ()) -> T m ())
 postProcessWith =
     Lens.view scPostProcessRoot
     <&> \postProcess onError ->
@@ -162,10 +164,10 @@ postProcessWith =
                 PostProcess.GoodExpr -> pure ()
                 PostProcess.BadExpr e -> error ("postProcessWith onError failed: " <> prettyShow e)
 
-postProcessAssert :: Monad m => ConvertM m (T m ())
+postProcessAssert :: (MonadReader (Context z m) n, Monad m) => n (T m ())
 postProcessAssert = postProcessWith ?? error . prettyShow
 
-run :: (HasCallStack, Monad m) => Context m -> ConvertM m a -> OnceT (T m) a
+run :: (HasCallStack, Monad m) => Context (ConvertM m) m -> ConvertM m a -> OnceT (T m) a
 run ctx (ConvertM action) =
     runReaderT action ctx & report
     where
