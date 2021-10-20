@@ -22,7 +22,7 @@ module Lamdu.Sugar.Convert.Monad
 
 import qualified Control.Lens as Lens
 import           Control.Monad.Once (OnceT, MonadOnce(..), Typeable)
-import           Control.Monad.Trans.Reader (ReaderT, runReaderT)
+import           Control.Monad.Trans.Reader (ReaderT, runReaderT, mapReaderT)
 import qualified Control.Monad.Trans.Reader as Reader
 import           Control.Monad.Transaction (MonadTransaction(..))
 import           Data.Property (Property)
@@ -115,10 +115,11 @@ data Context n m = Context
     }
 Lens.makeLenses ''Context
 Lens.makePrisms ''TagFieldParam
+Lens.makePrisms ''ConvertM
 
 instance Anchors.HasCodeAnchors (Context n m) m where codeAnchors = scCodeAnchors
 
-cachedFunc :: Monad m => (Cache.Functions -> a) -> ConvertM m a
+cachedFunc :: MonadReader (Context z0 z1) n => (Cache.Functions -> a) -> n a
 cachedFunc f = Lens.view scCacheFunctions <&> f
 
 typeProtect :: Monad m => T m PostProcess.Result -> T m a -> T m (Maybe a)
@@ -130,9 +131,8 @@ typeProtect checkOk act =
             PostProcess.BadExpr _ -> pure Nothing
 
 typeProtectedSetToVal ::
-    Monad m =>
-    ConvertM m
-    (ExprIRef.HRef m # V.Term -> ExprIRef.ValI m -> T m (ExprIRef.ValI m))
+    (MonadReader (Context n m) n, Monad m) =>
+    n (ExprIRef.HRef m # V.Term -> ExprIRef.ValI m -> T m (ExprIRef.ValI m))
 typeProtectedSetToVal =
     Lens.view scPostProcessRoot
     <&> \checkOk dest valI ->
@@ -174,10 +174,7 @@ run ctx (ConvertM action) =
         Debug.EvaluatorM report = ctx ^. scDebugMonitors . Debug.sugaring . Debug.mAction
 
 convertOnce :: (Monad m, Typeable a) => ConvertM m a -> ConvertM m (OnceT (T m) a)
-convertOnce action =
-    Lens.view id
-    <&> (`run` action)
-    >>= ConvertM . lift . once
+convertOnce = _ConvertM %~ mapReaderT once
 
 convertSubexpression ::
     (Monad m, Monoid a) =>
