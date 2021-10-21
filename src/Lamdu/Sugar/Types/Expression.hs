@@ -39,7 +39,7 @@ module Lamdu.Sugar.Types.Expression
     -- Record & Cases
     , TaggedList(..), tlAddItem, tlItems
     , TaggedItem(..), tiTag, tiDelete, tiValue
-    , Composite(..), cItems, cPunnedItems, cAddItem, cTail
+    , Composite(..), cList, cPunnedItems, cTail
     , CompositeTail(..), _OpenComposite, _ClosedComposite
     , PunnedVar(..), pvVar, pvTagEntityId
 
@@ -189,11 +189,10 @@ data CompositeTail v name i o k
     deriving Generic
 
 data Composite v name i o k = Composite
-    { _cItems :: [TaggedItem Term v name i o k]
+    { _cList :: TaggedList Term v name i o k
     , -- Punned items are like Haskell's NamedFieldPuns
       _cPunnedItems :: [PunnedVar name o k]
     , _cTail :: CompositeTail v name i o k
-    , _cAddItem :: TagChoice name i o EntityId
     } deriving Generic
 
 data Nominal v name i o k = Nominal
