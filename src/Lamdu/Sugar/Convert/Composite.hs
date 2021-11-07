@@ -78,7 +78,7 @@ convertExtend cons extendOp valS exprPl extendV restC =
         addItemAction <- convertAddItem extendOp (Set.fromList (extendV ^. extendTag : restTags)) exprPl
         itemS <-
             convertItem addItemAction cons (exprPl ^. Input.stored)
-            (extendV ^. extendRest . Input.entityId) (Set.fromList restTags) valS
+            (exprPl ^. Input.entityId) (Set.fromList restTags) valS
             (extendV & extendRest %~ (^. Input.stored . ExprIRef.iref))
         punSugar <- Lens.view (ConvertM.scConfig . Config.sugarsEnabled . Config.fieldPuns)
         let addItem items =
